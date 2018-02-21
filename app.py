@@ -1,30 +1,30 @@
-@app.route("/")
-def index():
-    debug_template = """
-     <html>
-       <head>
-       </head>
-       <body>
-         <h1>Server sent events</h1>
-         <div id="event"></div>
-         <script type="text/javascript">
+# @app.route("/")
+# def index():
+#     debug_template = """
+#      <html>
+#        <head>
+#        </head>
+#        <body>
+#          <h1>Server sent events</h1>
+#          <div id="event"></div>
+#          <script type="text/javascript">
+#
+#          var eventOutputContainer = document.getElementById("event");
+#          var evtSrc = new EventSource("/subscribe");
+#
+#             var source = new EventSource("{{ url_for('sse.stream') }}");
+#             source.addEventListener('greeting', function(event) {
+#                 var data = JSON.parse(event.data);
+#                 // do what you want with this data
+#             }, false);
+#
+#          </script>
+#        </body>
+#      </html>
+#     """
+#     return(debug_template)
 
-         var eventOutputContainer = document.getElementById("event");
-         var evtSrc = new EventSource("/subscribe");
-
-            var source = new EventSource("{{ url_for('sse.stream') }}");
-            source.addEventListener('greeting', function(event) {
-                var data = JSON.parse(event.data);
-                // do what you want with this data
-            }, false);
-
-         </script>
-       </body>
-     </html>
-    """
-    return(debug_template)
-
-
+from __future__ import print_function
 import gevent
 import gevent.monkey
 from gevent.pywsgi import WSGIServer
