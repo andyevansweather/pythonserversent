@@ -1,21 +1,3 @@
-# author: oskar.blom@gmail.com
-#
-# Make sure your gevent version is >= 1.0
-from gevent.wsgi import WSGIServer
-from flask import Flask
-from flask_sse import sse
-
-app = Flask(__name__)
-app.config["REDIS_URL"] = "redis://localhost"
-app.register_blueprint(sse, url_prefix='/stream')
-
-@app.route('/send')
-def send_message():
-    sse.publish({"message": "Hello!"}, type='greeting')
-    return "Message sent!"
-
-
-# Client code consumes like this.
 @app.route("/")
 def index():
     debug_template = """
@@ -43,9 +25,92 @@ def index():
     return(debug_template)
 
 
-if __name__ == "__main__":
-    app.debug = True
-    server = WSGIServer(("", 80), app)
-    server.serve_forever()
-    # Then visit http://localhost:5000 to subscribe 
-    # and send messages by visiting http://localhost:5000/publish
+import gevent
+import gevent.monkey
+from gevent.pywsgi import WSGIServer
+gevent.monkey.patch_all()
+from time import sleep
+from flask import Flask, request, Response, render_template
+from flask_cors import CORS
+
+app = Flask(__name__)
+
+# Allow CORS for client to access server sent events
+CORS(app)
+
+def kill_motors():
+    return 'done'
+
+def event_stream():
+    count = 0
+    while True:
+        gevent.sleep(0.01)
+
+        yield 'data: %s\n\n' % count
+        count += 1
+
+def move_backwards():
+    count = 0
+    while True:
+        gevent.sleep(0.01)
+        yield 'data: %s\n\n' % count
+        count += 1
+
+def move_right():
+    count = 0
+    while True:
+        gevent.sleep(0.01)
+        yield 'data: %s\n\n' % count
+        count += 1
+
+def move_left():
+    count = 0
+    while True:
+        gevent.sleep(0.01)
+        yield 'data: %s\n\n' % count
+        count += 1
+
+def event_end():
+    count = 0
+    while True:
+        gevent.sleep(0.1)
+        yield 'data: %s\n\n' % count
+        count = 0
+
+@app.route('/my_event_source')
+def sse_request():
+    return Response(
+        event_stream(),
+        mimetype='text/event-stream')
+
+@app.route('/backwards')
+def sse_backwards():
+    return Response(
+        move_backwards(),
+        mimetype='text/event-stream')
+
+@app.route('/right')
+def sse_right():
+    return Response(
+        move_right(),
+        mimetype='text/event-stream')
+
+@app.route('/left')
+def sse_left():
+    return Response(
+        move_left(),
+        mimetype='text/event-stream')
+
+@app.route('/end_motor_source')
+def event_end():
+    kill_motors()
+    print('entered!!')
+    return 'end'
+
+@app.route('/')
+def page():
+    return render_template('index.html')
+
+if __name__ == '__main__':
+    http_server = WSGIServer(('0.0.0.0', 80), app)
+    http_server.serve_forever()
