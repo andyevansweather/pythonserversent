@@ -1,37 +1,19 @@
 # author: oskar.blom@gmail.com
 #
 # Make sure your gevent version is >= 1.0
-import gevent
 from gevent.wsgi import WSGIServer
-from gevent.queue import Queue
-
-from flask import Flask, Response
-
-import time
-
-
-# SSE "protocol" is described here: http://mzl.la/UPFyxY
-class ServerSentEvent(object):
-    def __init__(self, data):
-        self.data = data
-        self.event = None
-        self.id = None
-        self.desc_map = {
-            self.data : "data",
-            self.event : "event",
-            self.id : "id"
-        }
-
-    def encode(self):
-        if not self.data:
-            return ""
-        lines = ["%s: %s" % (v, k)
-                 for k, v in self.desc_map.iteritems() if k]
-
-        return "%s\n\n" % "\n".join(lines)
+from flask import Flask
+from flask_sse import sse
 
 app = Flask(__name__)
-subscriptions = []
+app.config["REDIS_URL"] = "redis://localhost"
+app.register_blueprint(sse, url_prefix='/stream')
+
+@app.route('/send')
+def send_message():
+    sse.publish({"message": "Hello!"}, type='greeting')
+    return "Message sent!"
+
 
 # Client code consumes like this.
 @app.route("/")
@@ -48,10 +30,11 @@ def index():
          var eventOutputContainer = document.getElementById("event");
          var evtSrc = new EventSource("/subscribe");
 
-         evtSrc.onmessage = function(e) {
-             console.log(e.data);
-             eventOutputContainer.innerHTML = e.data;
-         };
+            var source = new EventSource("{{ url_for('sse.stream') }}");
+            source.addEventListener('greeting', function(event) {
+                var data = JSON.parse(event.data);
+                // do what you want with this data
+            }, false);
 
          </script>
        </body>
@@ -59,36 +42,6 @@ def index():
     """
     return(debug_template)
 
-@app.route("/debug")
-def debug():
-    return "Currently %d subscriptions" % len(subscriptions)
-
-@app.route("/publish")
-def publish():
-    #Dummy data - pick up from request for real data
-    def notify():
-        msg = str(time.time())
-        for sub in subscriptions[:]:
-            sub.put(msg)
-
-    gevent.spawn(notify)
-
-    return "OK"
-
-@app.route("/subscribe")
-def subscribe():
-    def gen():
-        q = Queue()
-        subscriptions.append(q)
-        try:
-            while True:
-                result = q.get()
-                ev = ServerSentEvent(str(result))
-                yield ev.encode()
-        except GeneratorExit: # Or maybe use flask signals
-            subscriptions.remove(q)
-
-    return Response(gen(), mimetype="text/event-stream")
 
 if __name__ == "__main__":
     app.debug = True
